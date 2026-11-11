@@ -1,11 +1,35 @@
+# Байт-код Python
 __pycache__/
 *.py[cod]
 *$py.class
-.env
+*.so
+
+# Виртуальное окружение
+.venv/
 venv/
-.idea/
+env/
+ENV/
+
+# Дистрибутивы / сборка
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Тесты и покрытие
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Редакторы и IDE
 .vscode/
-*.png
-*.svg
-*.pdf
-*.dot
+.idea/
+*.swp
+*.swo
+
+# ОС
+.DS_Store
+Thumbs.db
+
+# Логи
+*.log
