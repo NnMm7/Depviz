@@ -1,97 +1,108 @@
-"""CLI-приложение для визуализации графа зависимостей."""
+"""Depviz — визуализатор графа зависимостей.
+
+Этап 2: поддержка локального репозитория (--repo) и генерация
+DOT-файла (--graphviz) с фильтрацией зависимостей (--filter).
+"""
 import argparse
+import os
 import re
 import sys
 
-DEFAULT_OUTPUT = "graph.png"
-DEFAULT_DEPTH = 3
-MIN_DEPTH = 1
-MAX_DEPTH = 10
-VERSION_REGEX = r"^\d+\.\d+\.\d+$"
 
-def validate_args(args: argparse.Namespace) -> None:
-    """Валидация входных параметров.
-    
-    :param args: объект с аргументами командной строки.
-    :raises SystemExit: если параметры некорректны.
-    """
-    if not args.package.strip():
-        raise ValueError("Имя пакета не может быть пустым.")
-    
-    if not args.repo.strip():
-        raise ValueError("URL репозитория или путь не может быть пустым.")
-
-    if not re.match(VERSION_REGEX, args.version):
-        raise ValueError(
-            "Версия пакета должна соответствовать формату X.Y.Z (например, 1.0.0)."
-        )
-
-    if not (MIN_DEPTH <= args.max_depth <= MAX_DEPTH):
-        raise ValueError(
-            f"Глубина анализа должна быть от {MIN_DEPTH} до {MAX_DEPTH}."
-        )
-
-    if not args.output.endswith(('.png', '.svg', '.pdf', '.dot')):
-        raise ValueError(
-            "Имя выходного файла должно иметь расширение .png, .svg, .pdf или .dot."
-        )
-
-def print_config(args: argparse.Namespace) -> None:
-    """Вывод всех настраиваемых параметров в формате ключ-значение."""
-    print("--- Настраиваемые параметры ---")
-    print(f"Имя анализируемого пакета: {args.package}")
-    print(f"URL репозитория / путь: {args.repo}")
-    print(f"Режим работы с тестовым репозиторием: {args.test_mode}")
-    print(f"Версия пакета: {args.version}")
-    print(f"Имя сгенерированного файла: {args.output}")
-    print(f"Максимальная глубина анализа: {args.max_depth}")
-    print("-------------------------------")
-
-def parse_args() -> argparse.Namespace:
-    """Парсинг аргументов командной строки."""
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(
-        description="Инструмент визуализации графа зависимостей (Этап 1)."
-    )
-    
-    parser.add_argument(
-        "-p", "--package", type=str, required=True,
-        help="Имя анализируемого пакета"
+        prog="depviz",
+        description="Визуализатор графа зависимостей пакета.",
     )
     parser.add_argument(
-        "-r", "--repo", type=str, required=True,
-        help="URL-адрес репозитория или путь к файлу тестового репозитория"
+        "--graphviz",
+        required=True,
+        help="Путь к выходному DOT-файлу (Graphviz).",
     )
     parser.add_argument(
-        "-t", "--test-mode", action="store_true",
-        help="Режим работы с тестовым репозиторием (флаг)"
+        "--repo",
+        required=True,
+        help="Путь к локальному репозиторию (папке с requirements.txt).",
     )
     parser.add_argument(
-        "-v", "--version", type=str, required=True,
-        help="Версия пакета (например, 1.0.0)"
+        "--package",
+        default=None,
+        help="Имя анализируемого пакета (необязательно).",
     )
     parser.add_argument(
-        "-o", "--output", type=str, default=DEFAULT_OUTPUT,
-        help=f"Имя сгенерированного файла с изображением (по умолчанию: {DEFAULT_OUTPUT})"
+        "--filter",
+        default=".*",
+        help="Регулярное выражение для фильтрации имён зависимостей.",
     )
-    parser.add_argument(
-        "-d", "--max-depth", type=int, default=DEFAULT_DEPTH,
-        help=f"Максимальная глубина анализа (по умолчанию: {DEFAULT_DEPTH})"
-    )
-    
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
-def main() -> None:
-    """Точка входа в приложение."""
-    args = parse_args()
-    
+
+def read_requirements(repo_path):
+    """Читает requirements.txt из локального репозитория и возвращает список зависимостей."""
+    if not os.path.isdir(repo_path):
+        raise FileNotFoundError(f"Репозиторий не найден: {repo_path}")
+
+    req_file = os.path.join(repo_path, "requirements.txt")
+    if not os.path.isfile(req_file):
+        raise FileNotFoundError(f"В репозитории нет requirements.txt: {req_file}")
+
+    deps = []
+    with open(req_file, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            # отбрасываем версии и маркеры: "requests>=2.0" -> "requests"
+            name = re.split(r"[<>=!~;\[ ]", line, maxsplit=1)[0].strip()
+            if name:
+                deps.append(name)
+    return deps
+
+
+def filter_deps(deps, pattern):
+    """Оставляет зависимости, чьё имя удовлетворяет регулярному выражению."""
+    regex = re.compile(pattern)
+    return [d for d in deps if regex.search(d)]
+
+
+def build_dot(package, deps):
+    """Строит текст DOT-графа: package -> dep1, dep2, ..."""
+    lines = ["digraph dependencies {", '    rankdir="LR";']
+    if package:
+        lines.append(f'    "{package}";')
+        for dep in deps:
+            lines.append(f'    "{package}" -> "{dep}";')
+    else:
+        # если имя пакета не задано — просто перечисляем зависимости
+        for dep in deps:
+            lines.append(f'    "{dep}";')
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
+def main(argv=None):
+    args = parse_args(argv)
+
     try:
-        validate_args(args)
-    except ValueError as error:
-        print(f"Ошибка валидации: {error}", file=sys.stderr)
-        sys.exit(1)
-        
-    print_config(args)
-    print("Этап 1 успешно выполнен. Параметры валидны.")
+        deps = read_requirements(args.repo)
+    except FileNotFoundError as e:
+        print(f"Ошибка: {e}", file=sys.stderr)
+        return 1
+
+    deps = filter_deps(deps, args.filter)
+    dot = build_dot(args.package, deps)
+
+    out_dir = os.path.dirname(os.path.abspath(args.graphviz))
+    if out_dir and not os.path.isdir(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+
+    with open(args.graphviz, "w", encoding="utf-8") as f:
+        f.write(dot)
+
+    print(f"Граф зависимостей сохранён в {args.graphviz} "
+          f"(зависимостей: {len(deps)})")
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
