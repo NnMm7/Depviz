@@ -1,11 +1,9 @@
-"""Depviz — визуализатор графа зависимостей.
-
-Этап 2: поддержка локального репозитория (--repo) и генерация
-DOT-файла (--graphviz) с фильтрацией зависимостей (--filter).
-"""
+"""Depviz — визуализатор графа зависимостей (Этап 3)."""
 import argparse
 import os
 import re
+import shutil
+import subprocess
 import sys
 
 
@@ -34,11 +32,15 @@ def parse_args(argv=None):
         default=".*",
         help="Регулярное выражение для фильтрации имён зависимостей.",
     )
+    parser.add_argument(
+        "--render",
+        action="store_true",
+        help="Отрендерить граф в PNG с помощью утилиты dot.",
+    )
     return parser.parse_args(argv)
 
 
 def read_requirements(repo_path):
-    """Читает requirements.txt из локального репозитория и возвращает список зависимостей."""
     if not os.path.isdir(repo_path):
         raise FileNotFoundError(f"Репозиторий не найден: {repo_path}")
 
@@ -52,7 +54,6 @@ def read_requirements(repo_path):
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
-            # отбрасываем версии и маркеры: "requests>=2.0" -> "requests"
             name = re.split(r"[<>=!~;\[ ]", line, maxsplit=1)[0].strip()
             if name:
                 deps.append(name)
@@ -60,24 +61,37 @@ def read_requirements(repo_path):
 
 
 def filter_deps(deps, pattern):
-    """Оставляет зависимости, чьё имя удовлетворяет регулярному выражению."""
     regex = re.compile(pattern)
     return [d for d in deps if regex.search(d)]
 
 
 def build_dot(package, deps):
-    """Строит текст DOT-графа: package -> dep1, dep2, ..."""
     lines = ["digraph dependencies {", '    rankdir="LR";']
     if package:
         lines.append(f'    "{package}";')
         for dep in deps:
             lines.append(f'    "{package}" -> "{dep}";')
     else:
-        # если имя пакета не задано — просто перечисляем зависимости
         for dep in deps:
             lines.append(f'    "{dep}";')
     lines.append("}")
     return "\n".join(lines) + "\n"
+
+
+def render_png(dot_file):
+    """Вызывает утилиту dot для рендеринга графа в PNG."""
+    if not shutil.which("dot"):
+        print("Ошибка: утилита 'dot' не найдена. Установите Graphviz.", file=sys.stderr)
+        return False
+    
+    png_file = os.path.splitext(dot_file)[0] + ".png"
+    try:
+        subprocess.run(["dot", "-Tpng", dot_file, "-o", png_file], check=True)
+        print(f"Изображение графа сохранено в {png_file}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Ошибка при рендеринге: {e}", file=sys.stderr)
+        return False
 
 
 def main(argv=None):
@@ -99,8 +113,12 @@ def main(argv=None):
     with open(args.graphviz, "w", encoding="utf-8") as f:
         f.write(dot)
 
-    print(f"Граф зависимостей сохранён в {args.graphviz} "
-          f"(зависимостей: {len(deps)})")
+    print(f"Граф зависимостей сохранён в {args.graphviz} (зависимостей: {len(deps)})")
+
+    if args.render:
+        if not render_png(args.graphviz):
+            return 1
+
     return 0
 
 
