@@ -1,2 +1,6 @@
 @echo off
-python src\main.py %*
+python -m src.main ^
+  --graphviz graph.dot ^
+  --repo . ^
+  --package mypkg ^
+  --filter ".*"
