@@ -1,3 +1,11 @@
 __pycache__/
-*.py[cod]
-*.dot
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+*.png
+*.svg
+*.pdf
