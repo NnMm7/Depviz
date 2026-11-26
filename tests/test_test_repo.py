@@ -3,7 +3,7 @@ import os
 import sys
 import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-from test_repo import load_graph_from_file, TestRepoError
+from test_repo import load_graph_from_file, RepoError
 
 def test_load_simple(tmp_path):
     file = tmp_path / "repo.txt"
@@ -14,5 +14,5 @@ def test_load_simple(tmp_path):
 def test_load_rejects_lowercase(tmp_path):
     file = tmp_path / "repo.txt"
     file.write_text("a B\n", encoding="utf-8")
-    with pytest.raises(TestRepoError):
+    with pytest.raises(RepoError):
         load_graph_from_file(str(file))
