@@ -7,7 +7,7 @@
 from graph import Graph
 
 
-class TestRepoError(ValueError):
+class RepoError(ValueError):
     """Ошибка разбора файла-описания графа."""
 
 
@@ -27,12 +27,12 @@ def _parse_line(graph: Graph, line: str, line_number: int, path: str) -> None:
     """Разбирает одну строку файла."""
     tokens = line.split()
     if len(tokens) < 2:
-        raise TestRepoError(
+        raise RepoError(
             f"{path}:{line_number}: ожидается родитель и хотя бы один потомок."
         )
     for token in tokens:
         if not token.isalpha() or not token.isupper():
-            raise TestRepoError(
+            raise RepoError(
                 f"{path}:{line_number}: имя пакета должно быть большими "
                 f"латинскими буквами, получено {token!r}."
             )
