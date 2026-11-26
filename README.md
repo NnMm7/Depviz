@@ -17,3 +17,7 @@ CLI-приложение для визуализации графа зависи
 Запуск приложения (Windows):
 ```bat
 run.bat
+Запустить напрямую:
+python src/main.py --package express --source https://raw.githubusercontent.com/expressjs/express/master/package.json
+Запуск тестов:
+python -m pytest tests/ -v
