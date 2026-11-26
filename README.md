@@ -29,3 +29,8 @@ CLI-приложение для визуализации графа зависи
 Установка зависимостей (только для тестов, не для работы с пакетами):
 ```bash
 npm install
+
+Запустить напрямую:
+python src/main.py --package express --source https://raw.githubusercontent.com/expressjs/express/master/package.json
+Запуск тестов:
+python -m pytest tests/ -v
